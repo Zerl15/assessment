@@ -167,7 +167,7 @@
       const list = document.getElementById('inventoryList');
       list.innerHTML = '';
       if (Object.keys(stock).length === 0) {
-        list.innerHTML = '<li>No stock data available.</li>';
+        list.innerHTML = '<li>No stock data available because there are no records of vaccinated children. Note: All health facilities have a stock of 500 vaccines.</li>';
         return;
       }
       for (const [facility, count] of Object.entries(stock)) {
