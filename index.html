@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PNG Vaccination Management App</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px; }
+    h1 { text-align: center; color: #1f2937; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; margin: 5px; color: white; cursor: pointer; transition: background-color 0.3s ease; }
+    .btn:hover { opacity: 0.9; }
+    .btn-blue { background-color: #3b82f6; }
+    .btn-green { background-color: #10b981; }
+    .btn-purple { background-color: #8b5cf6; }
+    .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: box-shadow 0.3s ease; }
+    .container:hover { box-shadow: 0 6px 10px rgba(0,0,0,0.15); }
+    select, input { width: 100%; padding: 8px; margin-top: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; transition: border-color 0.3s ease; }
+    select:focus, input:focus { border-color: #3b82f6; outline: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; animation: fadeIn 0.5s ease-in-out; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+    th { background-color: #e5e7eb; }
+    #chartContainer { margin-top: 40px; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <h1>PNG Vaccination Management App</h1>
+  <div style="text-align:center">
+    <button class="btn btn-blue" onclick="switchView('form')">Record Vaccination</button>
+    <button class="btn btn-green" onclick="switchView('inventory')">View Inventory</button>
+    <button class="btn btn-purple" onclick="switchView('dashboard')">View Dashboard</button>
+  </div>
+  <div class="container">
+    <div id="form-view">
+      <form onsubmit="submitForm(event)">
+        <input type="text" id="childName" placeholder="Child Name" required />
+        <input type="number" id="age" placeholder="Age" required />
+        <select id="region" onchange="populateProvinces()" required><option value="">Select Region</option></select>
+        <select id="province" onchange="populateDistricts()" required><option value="">Select Province</option></select>
+        <select id="district" onchange="populateFacilities()" required><option value="">Select District</option></select>
+        <select id="facility" required><option value="">Select Facility</option></select>
+        <button type="submit" class="btn btn-blue">Submit</button>
+      </form>
+    </div>
+
+    <div id="inventory-view" style="display:none">
+      <ul id="inventoryList"></ul>
+    </div>
+
+    <div id="dashboard-view" style="display:none">
+      <table id="dashboardTable">
+        <thead>
+          <tr>
+            <th>Child Name</th>
+            <th>Age</th>
+            <th>Region</th>
+            <th>Province</th>
+            <th>District</th>
+            <th>Facility</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div id="chartContainer">
+        <canvas id="vaccinationChart" width="400" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const data = {
+      "Highlands": {
+        "Eastern Highlands": {
+          "Goroka": ["Goroka Hospital", "North Goroka Clinic"],
+          "Kainantu": ["Kainantu Health Centre"]
+        },
+        "Western Highlands": {
+          "Mt Hagen": ["Mt Hagen Hospital"]
+        }
+      },
+      "Momase": {
+        "Morobe": {
+          "Lae": ["Angau Hospital", "Lae Urban Clinic"]
+        },
+        "Madang": {
+          "Madang Urban": ["Modilon Hospital"]
+        }
+      },
+      "Southern": {
+        "Central": {
+          "Abau": ["Kupiano Health Centre"]
+        },
+        "National Capital District": {
+          "Port Moresby": ["PMGH", "Six Mile Clinic"]
+        }
+      }
+    };
+
+    const vaccineData = [];
+    const stock = {};
+
+    function switchView(view) {
+      document.getElementById('form-view').style.display = view === 'form' ? 'block' : 'none';
+      document.getElementById('inventory-view').style.display = view === 'inventory' ? 'block' : 'none';
+      document.getElementById('dashboard-view').style.display = view === 'dashboard' ? 'block' : 'none';
+      if (view === 'inventory') renderInventory();
+      if (view === 'dashboard') {
+        renderDashboard();
+        renderChart();
+      }
+    }
+
+    function populateProvinces() {
+      const region = document.getElementById('region').value;
+      const provinceEl = document.getElementById('province');
+      provinceEl.innerHTML = '<option value="">Select Province</option>';
+      for (const province in data[region]) {
+        provinceEl.innerHTML += `<option value="${province}">${province}</option>`;
+      }
+      document.getElementById('district').innerHTML = '<option value="">Select District</option>';
+      document.getElementById('facility').innerHTML = '<option value="">Select Facility</option>';
+    }
+
+    function populateDistricts() {
+      const region = document.getElementById('region').value;
+      const province = document.getElementById('province').value;
+      const districtEl = document.getElementById('district');
+      districtEl.innerHTML = '<option value="">Select District</option>';
+      for (const district in data[region][province]) {
+        districtEl.innerHTML += `<option value="${district}">${district}</option>`;
+      }
+      document.getElementById('facility').innerHTML = '<option value="">Select Facility</option>';
+    }
+
+    function populateFacilities() {
+      const region = document.getElementById('region').value;
+      const province = document.getElementById('province').value;
+      const district = document.getElementById('district').value;
+      const facilityEl = document.getElementById('facility');
+      facilityEl.innerHTML = '<option value="">Select Facility</option>';
+      for (const facility of data[region][province][district]) {
+        facilityEl.innerHTML += `<option value="${facility}">${facility}</option>`;
+      }
+    }
+
+    function submitForm(e) {
+      e.preventDefault();
+      const entry = {
+        childName: document.getElementById('childName').value,
+        age: document.getElementById('age').value,
+        region: document.getElementById('region').value,
+        province: document.getElementById('province').value,
+        district: document.getElementById('district').value,
+        facility: document.getElementById('facility').value
+      };
+      vaccineData.push(entry);
+      stock[entry.facility] = (stock[entry.facility] || 500) - 1;
+      alert('Record submitted successfully!');
+      e.target.reset();
+    }
+
+    function renderInventory() {
+      const list = document.getElementById('inventoryList');
+      list.innerHTML = '';
+      if (Object.keys(stock).length === 0) {
+        list.innerHTML = '<li>No stock data available.</li>';
+        return;
+      }
+      for (const [facility, count] of Object.entries(stock)) {
+        const li = document.createElement('li');
+        li.textContent = `${facility}: ${count} vaccines`;
+        list.appendChild(li);
+      }
+    }
+
+    function renderDashboard() {
+      const tbody = document.querySelector('#dashboardTable tbody');
+      tbody.innerHTML = '';
+      for (const entry of vaccineData) {
+        const row = document.createElement('tr');
+        for (const field in entry) {
+          const td = document.createElement('td');
+          td.textContent = entry[field];
+          row.appendChild(td);
+        }
+        tbody.appendChild(row);
+      }
+    }
+
+    function renderChart() {
+      const ctx = document.getElementById('vaccinationChart').getContext('2d');
+      const facilityCounts = {};
+      for (const entry of vaccineData) {
+        facilityCounts[entry.facility] = (facilityCounts[entry.facility] || 0) + 1;
+      }
+      const chartData = {
+        labels: Object.keys(facilityCounts),
+        datasets: [{
+          label: 'Vaccinations by Facility',
+          data: Object.values(facilityCounts),
+          backgroundColor: '#3b82f6'
+        }]
+      };
+      if (window.vaccineChart) window.vaccineChart.destroy();
+      window.vaccineChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    window.onload = () => {
+      const regionEl = document.getElementById('region');
+      for (const region in data) {
+        regionEl.innerHTML += `<option value="${region}">${region}</option>`;
+      }
+    }
+  </script>
+</body>
+</html>
